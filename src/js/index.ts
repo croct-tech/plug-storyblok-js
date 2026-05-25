@@ -1,6 +1,6 @@
 import {createOptionDecorator} from '@/utils/decorator';
-import {fetchBrowserContent} from '@/utils/fetch';
+import {fetchClientContent} from '@/utils/fetch';
 
 export const withCroct = createOptionDecorator({
-    fetchContent: fetchBrowserContent,
+    fetchContent: (id, params) => fetchClientContent(id, {preferredLocale: params?.language}),
 });

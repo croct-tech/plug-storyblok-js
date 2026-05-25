@@ -3,7 +3,7 @@ import type {ApiDecorator} from '@/utils/decorator';
 jest.mock(
     '@/utils/fetch',
     () => ({
-        fetchBrowserContent: jest.fn(),
+        fetchClientContent: jest.fn(),
     }),
 );
 
@@ -24,16 +24,28 @@ describe('withCroct', () => {
         get createOptionDecorator() {
             return jest.requireMock('@/react/decorator').createOptionDecorator;
         },
-        get fetchBrowserContent() {
-            return jest.requireMock('@/utils/fetch').fetchBrowserContent;
+        get fetchClientContent() {
+            return jest.requireMock('@/utils/fetch').fetchClientContent;
         },
     };
 
-    it('should use fetchBrowserContent as the fetchContent implementation', async () => {
+    it('should forward language as preferredLocale to fetchClientContent', async () => {
         await import('@/react/index');
 
         const decorator: ApiDecorator = mocks.createOptionDecorator.mock.calls[0][0];
 
-        expect(decorator.fetchContent).toBe(mocks.fetchBrowserContent);
+        await decorator.fetchContent('slot-id', {language: 'de'});
+
+        expect(mocks.fetchClientContent).toHaveBeenCalledWith('slot-id', {preferredLocale: 'de'});
+    });
+
+    it('should forward undefined locale when language is not provided', async () => {
+        await import('@/react/index');
+
+        const decorator: ApiDecorator = mocks.createOptionDecorator.mock.calls[0][0];
+
+        await decorator.fetchContent('slot-id');
+
+        expect(mocks.fetchClientContent).toHaveBeenCalledWith('slot-id', {preferredLocale: undefined});
     });
 });

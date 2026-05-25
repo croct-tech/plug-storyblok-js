@@ -21,7 +21,7 @@ jest.mock(
 jest.mock(
     '@/utils/fetch',
     () => ({
-        fetchBrowserContent: jest.fn(),
+        fetchClientContent: jest.fn(),
     }),
 );
 
@@ -153,6 +153,33 @@ describe('withCroct', () => {
         expect(result).toBe(fetchedContent);
     });
 
+    it('should forward language as preferredLocale in SSR environment', async () => {
+        mocks.isSsr.mockReturnValue(true);
+        mocks.isPreviewUrl.mockReturnValue(false);
+
+        await import('@/next/index');
+
+        const decorator: ApiDecorator = mocks.createOptionDecorator.mock.calls[0][0];
+
+        const {fetchContent} = mocks;
+
+        fetchContent.mockResolvedValue(fetchedContent);
+
+        const context = {} as FetchOptions['route'];
+
+        await decorator.fetchContent('slot-id', {
+            version: 'draft',
+            route: context,
+            language: 'de',
+        });
+
+        expect(fetchContent).toHaveBeenCalledWith('slot-id', {
+            includeSchema: true,
+            route: context,
+            preferredLocale: 'de',
+        });
+    });
+
     it('should return undefined in SSR when URL is a preview URL to avoid overwriting content', async () => {
         mocks.isSsr.mockReturnValue(true);
         mocks.isPreviewUrl.mockReturnValue(true);
@@ -196,14 +223,32 @@ describe('withCroct', () => {
         expect(result).toBe(fetchedContent);
     });
 
-    it('should use fetchBrowserContent in browser environment', async () => {
+    it('should forward language as preferredLocale to fetchClientContent in browser environment', async () => {
         mocks.isSsr.mockReturnValue(false);
 
         await import('@/next/index');
 
         const decorator: ApiDecorator = mocks.createOptionDecorator.mock.calls[0][0];
 
-        expect(decorator.fetchContent).toBe(jest.requireMock('@/utils/fetch').fetchBrowserContent);
+        const {fetchClientContent} = jest.requireMock('@/utils/fetch');
+
+        await decorator.fetchContent('slot-id', {language: 'de'});
+
+        expect(fetchClientContent).toHaveBeenCalledWith('slot-id', {preferredLocale: 'de'});
+    });
+
+    it('should forward undefined locale when language is not provided in browser environment', async () => {
+        mocks.isSsr.mockReturnValue(false);
+
+        await import('@/next/index');
+
+        const decorator: ApiDecorator = mocks.createOptionDecorator.mock.calls[0][0];
+
+        const {fetchClientContent} = jest.requireMock('@/utils/fetch');
+
+        await decorator.fetchContent('slot-id');
+
+        expect(fetchClientContent).toHaveBeenCalledWith('slot-id', {preferredLocale: undefined});
     });
 
     it('should call headers() when beforeRequest is called in SSR environment', async () => {

@@ -4,7 +4,7 @@ import {headers} from 'next/headers';
 import {isSsr} from '@/utils/ssr';
 import {createOptionDecorator} from '@/react/decorator';
 import {isPreviewUrl} from '@/utils/preview';
-import {fetchBrowserContent} from '@/utils/fetch';
+import {fetchClientContent} from '@/utils/fetch';
 
 export const withCroct = createOptionDecorator({
     /*
@@ -32,6 +32,7 @@ export const withCroct = createOptionDecorator({
             const response = await fetchContent(id, {
                 includeSchema: true,
                 route: params?.route,
+                ...(params?.language !== undefined && {preferredLocale: params.language}),
             });
 
             if (response.metadata?.contentSource === 'slot') {
@@ -40,7 +41,7 @@ export const withCroct = createOptionDecorator({
 
             return response;
         }
-        : fetchBrowserContent,
+        : (id, params) => fetchClientContent(id, {preferredLocale: params?.language}),
     resolveParams: params => {
         if (params === undefined) {
             return undefined;

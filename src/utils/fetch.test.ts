@@ -16,7 +16,7 @@ jest.mock(
     }),
 );
 
-describe('fetchBrowserContent', () => {
+describe('fetchClientContent', () => {
     beforeEach(() => {
         jest.resetModules();
         jest.clearAllMocks();
@@ -44,22 +44,38 @@ describe('fetchBrowserContent', () => {
     it('should call croct.fetch with includeSchema option', async () => {
         mocks.isPreviewUrl.mockReturnValue(false);
 
-        const {fetchBrowserContent} = await import('@/utils/fetch');
+        const {fetchClientContent} = await import('@/utils/fetch');
 
         mocks.croctFetch.mockResolvedValue(fetchedContent);
 
-        const result = await fetchBrowserContent('slot-id');
+        const result = await fetchClientContent('slot-id');
 
         expect(mocks.croctFetch).toHaveBeenCalledWith('slot-id', {includeSchema: true});
+        expect(result).toBe(fetchedContent);
+    });
+
+    it('should pass preferredLocale to croct.fetch when provided', async () => {
+        mocks.isPreviewUrl.mockReturnValue(false);
+
+        const {fetchClientContent} = await import('@/utils/fetch');
+
+        mocks.croctFetch.mockResolvedValue(fetchedContent);
+
+        const result = await fetchClientContent('slot-id', {preferredLocale: 'de'});
+
+        expect(mocks.croctFetch).toHaveBeenCalledWith('slot-id', {
+            includeSchema: true,
+            preferredLocale: 'de',
+        });
         expect(result).toBe(fetchedContent);
     });
 
     it('should return undefined when in preview mode to avoid overwriting content', async () => {
         mocks.isPreviewUrl.mockReturnValue(true);
 
-        const {fetchBrowserContent} = await import('@/utils/fetch');
+        const {fetchClientContent} = await import('@/utils/fetch');
 
-        const result = await fetchBrowserContent('slot-id');
+        const result = await fetchClientContent('slot-id');
 
         expect(mocks.isPreviewUrl).toHaveBeenCalledWith(window.location.href);
         expect(mocks.croctFetch).not.toHaveBeenCalled();
@@ -69,7 +85,7 @@ describe('fetchBrowserContent', () => {
     it('should return undefined when content source is a slot', async () => {
         mocks.isPreviewUrl.mockReturnValue(false);
 
-        const {fetchBrowserContent} = await import('@/utils/fetch');
+        const {fetchClientContent} = await import('@/utils/fetch');
 
         const slotContent: FetchResponse<DynamicSlotId> = {
             content: {
@@ -83,7 +99,7 @@ describe('fetchBrowserContent', () => {
 
         mocks.croctFetch.mockResolvedValue(slotContent);
 
-        const result = await fetchBrowserContent('slot-id');
+        const result = await fetchClientContent('slot-id');
 
         expect(mocks.croctFetch).toHaveBeenCalledWith('slot-id', {includeSchema: true});
         expect(result).toBeUndefined();
