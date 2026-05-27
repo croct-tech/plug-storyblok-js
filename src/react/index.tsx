@@ -1,4 +1,4 @@
-import {createOptionDecorator} from '@/react/decorator';
+import {createOptionDecorator} from '@/utils/decorator';
 import {fetchClientContent} from '@/utils/fetch';
 
 export const withCroct = createOptionDecorator({

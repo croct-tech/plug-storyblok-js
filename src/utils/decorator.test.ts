@@ -1,5 +1,4 @@
-import type {SbPluginFactory, StoryblokClient, SbSDKOptions} from '@storyblok/js';
-import type {ISbStoriesParams} from '@storyblok/react';
+import type {SbPluginFactory, StoryblokClient, SbSDKOptions, ISbStoriesParams} from '@storyblok/js';
 import type {ApiDecorator} from '@/utils/decorator';
 import {createOptionDecorator, decoratePlugin} from '@/utils/decorator';
 import {resolveContent} from '@/utils/content';

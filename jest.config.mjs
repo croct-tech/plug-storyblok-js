@@ -8,6 +8,7 @@ export default {
     },
     testEnvironment: 'jsdom',
     setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+    testPathIgnorePatterns: ['/node_modules/'],
     restoreMocks: true,
     resetMocks: true,
 };

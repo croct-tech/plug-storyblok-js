@@ -2,7 +2,7 @@ import {fetchContent, type FetchOptions} from '@croct/plug-next/server';
 import {getRequestUri} from '@croct/plug-next/config/context';
 import {headers} from 'next/headers';
 import {isSsr} from '@/utils/ssr';
-import {createOptionDecorator} from '@/react/decorator';
+import {createOptionDecorator} from '@/utils/decorator';
 import {isPreviewUrl} from '@/utils/preview';
 import {fetchClientContent} from '@/utils/fetch';
 
