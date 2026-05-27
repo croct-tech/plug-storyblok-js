@@ -50,7 +50,7 @@ describe('createOptionDecorator', () => {
         expect(typeof plugin.install).toBe('function');
     });
 
-    it('should call StoryblokVue.install with the app and decorated options', () => {
+    it('should install StoryblokVue with the app and decorated options', () => {
         const decorator: ApiDecorator = {
             fetchContent: jest.fn(),
         };
@@ -62,7 +62,7 @@ describe('createOptionDecorator', () => {
 
         plugin.install!(mockApp);
 
-        expect(StoryblokVue.install).toHaveBeenCalledWith(mockApp, options);
+        expect(mockApp.use).toHaveBeenCalledWith(StoryblokVue, options);
     });
 });
 

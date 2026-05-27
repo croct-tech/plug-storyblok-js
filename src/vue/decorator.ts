@@ -12,7 +12,7 @@ export function createOptionDecorator(decorator: ApiDecorator): (options: SbVueS
 
     return (options: SbVueSDKOptions): Plugin => ({
         install: function install(app: App) {
-            StoryblokVue.install!(app, defaultDecorator(options));
+            app.use(StoryblokVue, defaultDecorator(options));
         },
     });
 }
