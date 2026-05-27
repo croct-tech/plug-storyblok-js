@@ -1,6 +1,5 @@
 import type {StoryblokClient} from '@storyblok/js';
 import {decorateApi} from '@/utils/decorator';
-import {fetchClientContent} from '@/utils/fetch';
 import {isPreviewUrl} from '@/utils/preview';
 import {isSsr} from '@/utils/ssr';
 
@@ -14,31 +13,31 @@ type NuxtApp = {
 
 export function withCroct(nuxtApp: NuxtApp, api: StoryblokClient): void {
     decorateApi(api, {
-        fetchContent: isSsr()
-            ? async (id, params) => {
-                const url = nuxtApp.ssrContext?.url;
+        fetchContent: async (id, params) => {
+            const requestUrl = isSsr()
+                ? nuxtApp.ssrContext?.url
+                : window.location.href;
 
-                if (url !== undefined && isPreviewUrl(url)) {
-                    return undefined;
-                }
-
-                const response = await $fetch('/api/_croct/content', {
-                    method: 'POST',
-                    body: {
-                        slotId: id,
-                        includeSchema: true,
-                        ...(params?.language !== undefined
-                            ? {preferredLocale: params.language}
-                            : {}),
-                    },
-                });
-
-                if (response?.metadata?.contentSource === 'slot') {
-                    return undefined;
-                }
-
-                return response;
+            if (requestUrl !== undefined && isPreviewUrl(requestUrl)) {
+                return undefined;
             }
-            : (id, params) => fetchClientContent(id, {preferredLocale: params?.language}),
+
+            const response = await $fetch('/api/_croct/content', {
+                method: 'POST',
+                body: {
+                    slotId: id,
+                    includeSchema: true,
+                    ...(params?.language !== undefined
+                        ? {preferredLocale: params.language}
+                        : {}),
+                },
+            });
+
+            if (response?.metadata?.contentSource === 'slot') {
+                return undefined;
+            }
+
+            return response;
+        },
     });
 }

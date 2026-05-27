@@ -8,13 +8,6 @@ jest.mock(
 );
 
 jest.mock(
-    '@/utils/fetch',
-    () => ({
-        fetchClientContent: jest.fn(),
-    }),
-);
-
-jest.mock(
     '@/utils/preview',
     () => ({
         isPreviewUrl: jest.fn(),
@@ -41,9 +34,6 @@ describe('withCroct', () => {
     const mocks = {
         get decorateApi(): jest.Mock {
             return jest.requireMock('@/utils/decorator').decorateApi;
-        },
-        get fetchClientContent(): jest.Mock {
-            return jest.requireMock('@/utils/fetch').fetchClientContent;
         },
         get isPreviewUrl(): jest.Mock {
             return jest.requireMock('@/utils/preview').isPreviewUrl;
@@ -80,26 +70,13 @@ describe('withCroct', () => {
         return mocks.decorateApi.mock.calls[0][1];
     }
 
-    function installServerPlugin(ssrContext?: {url?: string}): void {
-        mocks.isSsr.mockReturnValue(true);
-        mocks.isPreviewUrl.mockReturnValue(false);
-
-        installPlugin(ssrContext);
-    }
-
-    function installClientPlugin(): void {
-        mocks.isSsr.mockReturnValue(false);
-
-        installPlugin();
-    }
-
     it('should decorate the provided API', () => {
         installPlugin();
 
         expect(mocks.decorateApi).toHaveBeenCalledWith(api, expect.any(Object));
     });
 
-    it('should fetch content via the server endpoint during SSR', async () => {
+    it('should fetch content via the server endpoint', async () => {
         const fetchedContent = {
             content: {title: 'Personalized'},
             metadata: {contentSource: 'experience'},
@@ -108,7 +85,9 @@ describe('withCroct', () => {
         const mockFetch = jest.fn().mockResolvedValue(fetchedContent);
 
         setGlobalFetch(mockFetch);
-        installServerPlugin();
+        mocks.isSsr.mockReturnValue(true);
+        mocks.isPreviewUrl.mockReturnValue(false);
+        installPlugin();
 
         const result = await getDecorator().fetchContent('slot-id');
 
@@ -126,14 +105,45 @@ describe('withCroct', () => {
         expect(result).toBe(fetchedContent);
     });
 
-    it('should forward language as preferredLocale during SSR', async () => {
+    it('should fetch content via the server endpoint on the client side', async () => {
+        const fetchedContent = {
+            content: {title: 'Personalized'},
+            metadata: {contentSource: 'experience'},
+        };
+
+        const mockFetch = jest.fn().mockResolvedValue(fetchedContent);
+
+        setGlobalFetch(mockFetch);
+        mocks.isSsr.mockReturnValue(false);
+        mocks.isPreviewUrl.mockReturnValue(false);
+        installPlugin();
+
+        const result = await getDecorator().fetchContent('slot-id');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/_croct/content',
+            {
+                method: 'POST',
+                body: {
+                    slotId: 'slot-id',
+                    includeSchema: true,
+                },
+            },
+        );
+
+        expect(result).toBe(fetchedContent);
+    });
+
+    it('should forward language as preferredLocale', async () => {
         const mockFetch = jest.fn().mockResolvedValue({
             content: {},
             metadata: {contentSource: 'experience'},
         });
 
         setGlobalFetch(mockFetch);
-        installServerPlugin();
+        mocks.isSsr.mockReturnValue(false);
+        mocks.isPreviewUrl.mockReturnValue(false);
+        installPlugin();
 
         await getDecorator().fetchContent('slot-id', {language: 'de'});
 
@@ -150,14 +160,16 @@ describe('withCroct', () => {
         );
     });
 
-    it('should not include preferredLocale when language is not provided during SSR', async () => {
+    it('should not include preferredLocale when language is not provided', async () => {
         const mockFetch = jest.fn().mockResolvedValue({
             content: {},
             metadata: {contentSource: 'experience'},
         });
 
         setGlobalFetch(mockFetch);
-        installServerPlugin();
+        mocks.isSsr.mockReturnValue(false);
+        mocks.isPreviewUrl.mockReturnValue(false);
+        installPlugin();
 
         await getDecorator().fetchContent('slot-id');
 
@@ -173,14 +185,16 @@ describe('withCroct', () => {
         );
     });
 
-    it('should return undefined when content source is a slot during SSR', async () => {
+    it('should return undefined when content source is a slot', async () => {
         const mockFetch = jest.fn().mockResolvedValue({
             content: {title: 'Test'},
             metadata: {contentSource: 'slot'},
         });
 
         setGlobalFetch(mockFetch);
-        installServerPlugin();
+        mocks.isSsr.mockReturnValue(false);
+        mocks.isPreviewUrl.mockReturnValue(false);
+        installPlugin();
 
         const result = await getDecorator().fetchContent('slot-id');
 
@@ -191,13 +205,28 @@ describe('withCroct', () => {
         const mockFetch = jest.fn();
 
         setGlobalFetch(mockFetch);
-        installServerPlugin({url: 'https://example.com?_storyblok_c=1'});
-
+        mocks.isSsr.mockReturnValue(true);
         mocks.isPreviewUrl.mockReturnValue(true);
+        installPlugin({url: 'https://example.com?_storyblok_c=1'});
 
         const result = await getDecorator().fetchContent('slot-id');
 
         expect(mocks.isPreviewUrl).toHaveBeenCalledWith('https://example.com?_storyblok_c=1');
+        expect(mockFetch).not.toHaveBeenCalled();
+        expect(result).toBeUndefined();
+    });
+
+    it('should skip fetching when the browser URL is a preview URL on the client side', async () => {
+        const mockFetch = jest.fn();
+
+        setGlobalFetch(mockFetch);
+        mocks.isSsr.mockReturnValue(false);
+        mocks.isPreviewUrl.mockReturnValue(true);
+        installPlugin();
+
+        const result = await getDecorator().fetchContent('slot-id');
+
+        expect(mocks.isPreviewUrl).toHaveBeenCalledWith(window.location.href);
         expect(mockFetch).not.toHaveBeenCalled();
         expect(result).toBeUndefined();
     });
@@ -209,27 +238,13 @@ describe('withCroct', () => {
         });
 
         setGlobalFetch(mockFetch);
-        installServerPlugin();
+        mocks.isSsr.mockReturnValue(true);
+        mocks.isPreviewUrl.mockReturnValue(false);
+        installPlugin();
 
         await getDecorator().fetchContent('slot-id');
 
         expect(mocks.isPreviewUrl).not.toHaveBeenCalled();
         expect(mockFetch).toHaveBeenCalled();
-    });
-
-    it('should forward language as preferredLocale on the client side', async () => {
-        installClientPlugin();
-
-        await getDecorator().fetchContent('slot-id', {language: 'de'});
-
-        expect(mocks.fetchClientContent).toHaveBeenCalledWith('slot-id', {preferredLocale: 'de'});
-    });
-
-    it('should forward undefined locale when language is not provided on the client side', async () => {
-        installClientPlugin();
-
-        await getDecorator().fetchContent('slot-id');
-
-        expect(mocks.fetchClientContent).toHaveBeenCalledWith('slot-id', {preferredLocale: undefined});
     });
 });
