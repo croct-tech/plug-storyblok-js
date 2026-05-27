@@ -44,39 +44,47 @@
     "@croct/content-model": "^0.21",
     "@croct/json": "^2.1.0",
     "@croct/plug": "^0.23.0",
-    "@storyblok/js": "^5.1.4",
-    "tslib": "^2.8.1"
+    "@storyblok/js": "^4.4.4",
+    "tslib": "^2.7.0"
   },
   "devDependencies": {
     "@croct/eslint-plugin": "^0.9.2",
     "@croct/plug-next": "^0.10.0",
+    "@croct/plug-nuxt": "^0.1.0",
     "@croct/plug-react": "^0.17.0",
-    "@rollup/plugin-commonjs": "^29.0.2",
-    "@rollup/plugin-node-resolve": "^16.0.3",
-    "@rollup/plugin-typescript": "^12.3.0",
-    "@storyblok/react": "^6.1.5",
+    "@croct/plug-vue": "^0.1.0",
+    "@rollup/plugin-commonjs": "^28.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-typescript": "^12.0.0",
+    "@storyblok/react": "^5.4.21",
+    "@storyblok/vue": "^9.0.0",
     "@swc/jest": "^0.2.39",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/jest": "^29.5.12",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/parser": "^8.59.3",
-    "esbuild-fix-imports-plugin": "^1.0.23",
-    "eslint": "^10.3.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@typescript-eslint/parser": "^8.53.0",
+    "esbuild-fix-imports-plugin": "^1.0.19",
+    "eslint": "^10.4.0",
     "jest": "^29.3.1",
     "jest-environment-jsdom": "^29.7.0",
     "react": "^16.8.0  || ^17.0.0 || ^18.0.0 || ^19.0.0",
     "react-dom": "^16.8.0  || ^17.0.0 || ^18.0.0 || ^19.0.0",
     "tsup": "^8.4.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vue": "^3.3.0"
   },
   "peerDependencies": {
     "@croct/plug-next": "^0.10.0",
+    "@croct/plug-nuxt": "^0.1.0",
     "@croct/plug-react": "^0.17.0",
+    "@croct/plug-vue": "^0.1.0",
     "@storyblok/react": "^5.4.0",
+    "@storyblok/vue": "^9.0.0",
     "react": "^16.8.0  || ^17.0.0 || ^18.0.0 || ^19.0.0",
-    "react-dom": "^16.8.0  || ^17.0.0 || ^18.0.0 || ^19.0.0"
+    "react-dom": "^16.8.0  || ^17.0.0 || ^18.0.0 || ^19.0.0",
+    "vue": "^3.3.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -85,13 +93,25 @@
     "react-dom": {
       "optional": true
     },
+    "vue": {
+      "optional": true
+    },
     "@croct/plug-react": {
       "optional": true
     },
     "@croct/plug-next": {
       "optional": true
     },
+    "@croct/plug-nuxt": {
+      "optional": true
+    },
+    "@croct/plug-vue": {
+      "optional": true
+    },
     "@storyblok/react": {
+      "optional": true
+    },
+    "@storyblok/vue": {
       "optional": true
     }
   },

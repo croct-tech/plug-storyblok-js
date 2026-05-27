@@ -8,7 +8,7 @@ jest.mock(
 );
 
 jest.mock(
-    '@/utils/decorator',
+    '@/vue/decorator',
     () => ({
         createOptionDecorator: jest.fn(() => jest.fn()),
     }),
@@ -22,7 +22,7 @@ describe('withCroct', () => {
 
     const mocks = {
         get createOptionDecorator() {
-            return jest.requireMock('@/utils/decorator').createOptionDecorator;
+            return jest.requireMock('@/vue/decorator').createOptionDecorator;
         },
         get fetchClientContent() {
             return jest.requireMock('@/utils/fetch').fetchClientContent;
@@ -30,7 +30,7 @@ describe('withCroct', () => {
     };
 
     it('should forward language as preferredLocale to fetchClientContent', async () => {
-        await import('@/react/index');
+        await import('@/vue/index');
 
         const decorator: ApiDecorator = mocks.createOptionDecorator.mock.calls[0][0];
 
@@ -40,7 +40,7 @@ describe('withCroct', () => {
     });
 
     it('should forward undefined locale when language is not provided', async () => {
-        await import('@/react/index');
+        await import('@/vue/index');
 
         const decorator: ApiDecorator = mocks.createOptionDecorator.mock.calls[0][0];
 

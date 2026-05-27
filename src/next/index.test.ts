@@ -47,7 +47,7 @@ jest.mock(
 );
 
 jest.mock(
-    '@/react/decorator',
+    '@/utils/decorator',
     () => ({
         createOptionDecorator: jest.fn(() => jest.fn()),
     }),
@@ -71,7 +71,7 @@ describe('withCroct', () => {
 
     const mocks = {
         get createOptionDecorator() {
-            return jest.requireMock('@/react/decorator').createOptionDecorator;
+            return jest.requireMock('@/utils/decorator').createOptionDecorator;
         },
         get isSsr() {
             return jest.requireMock('@/utils/ssr').isSsr;

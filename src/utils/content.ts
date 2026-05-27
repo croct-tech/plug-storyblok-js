@@ -11,7 +11,7 @@ export type ContentFetcher = (id: string) => Promise<FetchResponse<DynamicSlotId
 /**
  * @internal
  */
-export async function resolveContent(content: JsonValue, fetcher: ContentFetcher): Promise<JsonValue> {
+export async function resolveContent(content: unknown, fetcher: ContentFetcher): Promise<unknown> {
     if (isObject(content)) {
         if (typeof content.croct === 'string' && content.croct.trim() !== '') {
             const {croct: slotId, ...rest} = content;
@@ -268,6 +268,6 @@ function generateUid(): string {
     return crypto.randomUUID();
 }
 
-function isObject(value: JsonValue | undefined): value is JsonObject {
+function isObject<T>(value: T): value is T & Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
