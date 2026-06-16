@@ -1170,6 +1170,22 @@ describe('resolveContent', () => {
         expect(fetcher).not.toHaveBeenCalled();
     });
 
+    it('should keep undefined property values without recursing or fetching', async () => {
+        const fetcher: ContentFetcher = jest.fn();
+
+        const content = {
+            defined: 'value',
+            missing: undefined,
+        };
+
+        const result = await resolveContent(content, fetcher);
+
+        expect(result).toEqual({defined: 'value', missing: undefined});
+        expect(Object.keys(result as Record<string, unknown>)).toEqual(['defined', 'missing']);
+
+        expect(fetcher).not.toHaveBeenCalled();
+    });
+
     it('should fetch content when slot property is a non-empty string', async () => {
         const fetcher: ContentFetcher = jest.fn().mockResolvedValue({
             content: {
@@ -1429,5 +1445,287 @@ describe('resolveContent', () => {
         await expect(resolveContent(content, fetcher)).resolves.toEqual(expectedFallback);
 
         expect(fetcher).toHaveBeenCalledWith('slot-id');
+    });
+
+    it('should preserve a Storyblok field that the Croct content omits because it is optional', async () => {
+        // Reproduces the customer-reported issue: the hero schema declares `tagline` as an
+        // optional attribute. The Storyblok story authors a tagline, but the Croct experiment
+        // variant leaves it unset, so the fetched content has no `tagline`. The resolved blok
+        // ends up without the field the component expects.
+        const fetcher: ContentFetcher = jest.fn().mockResolvedValue({
+            content: {
+                _component: 'hero-section@2',
+                cta: [
+                    {
+                        link: 'https://storyblok-next-personalization.vercel.app/catalog',
+                        label: 'Some CTA label',
+                    },
+                ],
+                image: 'https://a.storyblok.com/f/289964601464397/4240x2827/788dbcaf4d/fallback.png',
+                headline: 'Some heading',
+                // `tagline` is intentionally absent: it is optional and the variant did not set it.
+            },
+            metadata: {
+                schema: {
+                    root: {
+                        type: 'structure',
+                        attributes: {
+                            cta: {
+                                type: {
+                                    type: 'list',
+                                    items: {
+                                        id: 'cta',
+                                        type: 'reference',
+                                    },
+                                    maximumLength: 1,
+                                    minimumLength: 1,
+                                },
+                                optional: false,
+                                position: 2,
+                            },
+                            image: {
+                                type: {
+                                    id: '@croct/file',
+                                    type: 'reference',
+                                    properties: {
+                                        allowedTypes: ['image/jpeg', 'image/jp2', 'image/png', 'image/webp'],
+                                    },
+                                },
+                                optional: false,
+                                position: 3,
+                            },
+                            tagline: {
+                                type: {
+                                    type: 'text',
+                                    format: 'multiline',
+                                    minimumLength: 1,
+                                },
+                                optional: true,
+                                position: 1,
+                            },
+                            headline: {
+                                type: {
+                                    type: 'text',
+                                    minimumLength: 1,
+                                },
+                                optional: false,
+                                position: 0,
+                            },
+                        },
+                    },
+                    definitions: {
+                        cta: {
+                            type: 'structure',
+                            attributes: {
+                                link: {
+                                    type: {
+                                        type: 'text',
+                                        format: 'url',
+                                    },
+                                    optional: false,
+                                    position: 1,
+                                },
+                                label: {
+                                    type: {
+                                        type: 'text',
+                                        minimumLength: 1,
+                                    },
+                                    optional: false,
+                                    position: 0,
+                                },
+                            },
+                        },
+                        '@croct/file': {
+                            type: 'text',
+                            format: 'url',
+                            template: true,
+                            logicalType: 'file',
+                            fullyOptional: true,
+                        },
+                    },
+                },
+            },
+        });
+
+        // The Storyblok blok authored by the customer, with a tagline the component renders.
+        const content = {
+            croct: 'home-hero',
+            cta: [
+                {
+                    _uid: 'b9e354cf-1550-47eb-96e2-1db61e952158',
+                    link: {
+                        id: '9f09d0ab-b5d6-49ca-9f4b-4f46b87cd1c8',
+                        url: '',
+                        linktype: 'story',
+                        fieldtype: 'multilink',
+                        cached_url: 'catalog/',
+                    },
+                    label: 'Shop now',
+                    component: 'cta',
+                },
+            ],
+            image: {
+                id: 144008140194699,
+                alt: '',
+                filename: 'https://a.storyblok.com/f/289964601464397/4240x2827/788dbcaf4d/fallback.png',
+                fieldtype: 'asset',
+            },
+            tagline: 'Sporty or elegant, we got you covered.',
+            headline: 'Effortless style for everyday moments',
+            component: 'hero-section',
+        };
+
+        const result = await resolveContent(content, fetcher);
+
+        // The optional field Croct omits falls back to the Storyblok-authored value so the
+        // component keeps rendering, while Croct still overrides the attributes it does set.
+        expect(result).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'hero-section',
+            cta: [
+                {
+                    _uid: RANDOM_UUID,
+                    component: 'cta',
+                    link: {
+                        id: '',
+                        url: 'https://storyblok-next-personalization.vercel.app/catalog',
+                        linktype: 'url',
+                        fieldtype: 'multilink',
+                        cached_url: 'https://storyblok-next-personalization.vercel.app/catalog',
+                    },
+                    label: 'Some CTA label',
+                },
+            ],
+            image: {
+                id: null,
+                alt: null,
+                name: '',
+                focus: '',
+                title: null,
+                filename: 'https://a.storyblok.com/f/289964601464397/4240x2827/788dbcaf4d/fallback.png',
+                copyright: null,
+                fieldtype: 'asset',
+                meta_data: {},
+                is_external_url: true,
+            },
+            tagline: 'Sporty or elegant, we got you covered.',
+            headline: 'Some heading',
+        });
+    });
+
+    it('should drop an optional field that neither Croct nor Storyblok provides', async () => {
+        const fetcher: ContentFetcher = jest.fn().mockResolvedValue({
+            content: {
+                _component: 'hero',
+                headline: 'Fetched Headline',
+                // `tagline` is optional and unset by the variant.
+            },
+            metadata: {
+                schema: {
+                    root: {
+                        type: 'structure',
+                        attributes: {
+                            headline: {
+                                type: {
+                                    type: 'text',
+                                },
+                                optional: false,
+                            },
+                            tagline: {
+                                type: {
+                                    type: 'text',
+                                },
+                                optional: true,
+                            },
+                        },
+                    },
+                    definitions: {},
+                },
+            },
+        });
+
+        // The Storyblok blok does not author a tagline either, so there is nothing to fall back to.
+        const content = {
+            croct: 'slot-id',
+            headline: 'Storyblok Headline',
+        };
+
+        await expect(resolveContent(content, fetcher)).resolves.toEqual({
+            _uid: RANDOM_UUID,
+            component: 'hero',
+            headline: 'Fetched Headline',
+        });
+    });
+
+    it('should not recover fallback fields when the schema root is not a structure', async () => {
+        const fetcher: ContentFetcher = jest.fn().mockResolvedValue({
+            content: {
+                title: 'Fetched Title',
+            },
+            metadata: {
+                schema: {
+                    root: {
+                        type: 'reference',
+                        id: 'widget',
+                    },
+                    definitions: {
+                        widget: {
+                            type: 'structure',
+                            attributes: {
+                                title: {
+                                    type: {
+                                        type: 'text',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        const content = {
+            croct: 'slot-id',
+            fallbackTitle: 'Fallback',
+        };
+
+        await expect(resolveContent(content, fetcher)).resolves.toEqual({
+            _uid: RANDOM_UUID,
+            component: 'widget',
+            title: 'Fetched Title',
+        });
+    });
+
+    it('should return fallback properties when the fetched content does not match the schema', async () => {
+        const fetcher: ContentFetcher = jest.fn().mockResolvedValue({
+            content: {
+                _component: 'hero',
+                unknownField: 'value',
+            },
+            metadata: {
+                schema: {
+                    root: {
+                        type: 'structure',
+                        attributes: {
+                            headline: {
+                                type: {
+                                    type: 'text',
+                                },
+                            },
+                        },
+                    },
+                    definitions: {},
+                },
+            },
+        });
+
+        const content = {
+            croct: 'slot-id',
+            fallbackTitle: 'Fallback',
+        };
+
+        const {croct, ...expectedFallback} = content;
+
+        await expect(resolveContent(content, fetcher)).resolves.toEqual(expectedFallback);
     });
 });
