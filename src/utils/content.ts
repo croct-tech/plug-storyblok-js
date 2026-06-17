@@ -16,23 +16,7 @@ export async function resolveContent(content: unknown, fetcher: ContentFetcher):
                         return rest;
                     }
 
-                    const schema = response.metadata?.schema;
-
-                    if (schema === undefined) {
-                        return rest;
-                    }
-
-                    const converted = createStoryblokContent(response.content, schema);
-
-                    if (converted === undefined) {
-                        return rest;
-                    }
-
-                    // Fall back to the Storyblok-authored value for schema attributes the Croct
-                    // content omits (e.g. optional fields left unset by the variant) so they keep
-                    // rendering instead of disappearing from the blok. Storyblok-only fields that
-                    // are not part of the schema are still dropped, matching the converted shape.
-                    return {...getOmittedFields(rest, converted, schema), ...converted};
+                    return createStoryblokContent(response.content, response.metadata?.schema) ?? rest;
                 },
             ).catch(() => rest);
         }
@@ -262,28 +246,6 @@ function convertReference(
     }
 
     return convertContent({...content, _component: definition.id}, schemas, referenceDefinition);
-}
-
-function getOmittedFields(
-    fallback: Record<string, unknown>,
-    converted: JsonObject,
-    schema: ContentDefinitionBundle,
-): JsonObject {
-    const {root} = schema;
-
-    if (root.type !== 'structure') {
-        return {};
-    }
-
-    const entries: JsonObject = {};
-
-    for (const key of Object.keys(root.attributes)) {
-        if (!(key in converted) && key in fallback) {
-            entries[key] = fallback[key] as JsonValue;
-        }
-    }
-
-    return entries;
 }
 
 function getComponentName(id: string): string | null {
