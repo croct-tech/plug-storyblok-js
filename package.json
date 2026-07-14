@@ -43,16 +43,16 @@
   "dependencies": {
     "@croct/content-model": "^0.21",
     "@croct/json": "^2.1.0",
-    "@croct/plug": "^0.23.0",
+    "@croct/plug": "^0.24.0",
     "@storyblok/js": "^4.4.4",
     "tslib": "^2.7.0"
   },
   "devDependencies": {
     "@croct/eslint-plugin": "^0.9.2",
-    "@croct/plug-next": "^0.10.0",
-    "@croct/plug-nuxt": "^0.1.0",
-    "@croct/plug-react": "^0.17.0",
-    "@croct/plug-vue": "^0.1.0",
+    "@croct/plug-next": "^0.11.0",
+    "@croct/plug-nuxt": "^0.3.0",
+    "@croct/plug-react": "^0.18.0",
+    "@croct/plug-vue": "^0.2.0",
     "@rollup/plugin-commonjs": "^28.0.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-typescript": "^12.0.0",
@@ -76,10 +76,10 @@
     "vue": "^3.3.0"
   },
   "peerDependencies": {
-    "@croct/plug-next": "^0.10.0",
-    "@croct/plug-nuxt": "^0.1.0",
-    "@croct/plug-react": "^0.17.0",
-    "@croct/plug-vue": "^0.1.0",
+    "@croct/plug-next": "^0.11.0",
+    "@croct/plug-nuxt": "^0.3.0",
+    "@croct/plug-react": "^0.18.0",
+    "@croct/plug-vue": "^0.2.0",
     "@storyblok/react": "^5.4.0",
     "@storyblok/vue": "^8.0.0 || ^9.0.0 || ^10.0.0",
     "react": "^16.8.0  || ^17.0.0 || ^18.0.0 || ^19.0.0",
