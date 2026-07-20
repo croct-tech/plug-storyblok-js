@@ -16,7 +16,11 @@ export async function resolveContent(content: unknown, fetcher: ContentFetcher):
                         return rest;
                     }
 
-                    return createStoryblokContent(response.content, response.metadata?.schema) ?? rest;
+                    return createStoryblokContent(
+                        response.content,
+                        response.metadata?.schema,
+                        rest as JsonObject,
+                    ) ?? rest;
                 },
             ).catch(() => rest);
         }
@@ -46,18 +50,20 @@ export async function resolveContent(content: unknown, fetcher: ContentFetcher):
 export function createStoryblokContent(
     content: JsonObject,
     schemas: ContentDefinitionBundle | undefined,
+    original?: JsonValue,
 ): JsonObject | undefined {
     if (schemas === undefined) {
         return undefined;
     }
 
-    return convertContent(content, schemas, schemas.root) as JsonObject | undefined;
+    return convertContent(content, schemas, schemas.root, original) as JsonObject | undefined;
 }
 
 function convertContent(
     content: JsonValue,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
+    original?: JsonValue,
 ): JsonValue | undefined {
     if (typeof content === 'number') {
         return convertNumber(content, definition);
@@ -68,15 +74,15 @@ function convertContent(
     }
 
     if (typeof content === 'string') {
-        return convertString(content, definition);
+        return convertString(content, definition, original);
     }
 
     if (Array.isArray(content)) {
-        return convertArray(content, schemas, definition);
+        return convertArray(content, schemas, definition, original);
     }
 
     if (isObject(content)) {
-        return convertObject(content, schemas, definition);
+        return convertObject(content, schemas, definition, original);
     }
 
     return undefined;
@@ -98,7 +104,11 @@ function convertBoolean(content: boolean, definition: ContentDefinition): boolea
     return undefined;
 }
 
-function convertString(content: string, definition: ContentDefinition): JsonValue | undefined {
+function convertString(
+    content: string,
+    definition: ContentDefinition,
+    original?: JsonValue,
+): JsonValue | undefined {
     if (definition.type === 'reference' && definition.id === '@croct/file') {
         return {
             id: null,
@@ -115,7 +125,10 @@ function convertString(content: string, definition: ContentDefinition): JsonValu
     }
 
     if (definition.type === 'text') {
-        if (definition.format === 'url') {
+        // Link fields may be synced as plain text since Storyblok allows relative URLs,
+        // which the URL format does not. The original Storyblok content is the only
+        // remaining signal that the field is a link rather than a text.
+        if (definition.format === 'url' || isMultilink(original)) {
             return {
                 id: '',
                 linktype: 'url',
@@ -135,6 +148,7 @@ function convertArray(
     content: JsonValue[],
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
+    original?: JsonValue,
 ): JsonValue[] | undefined {
     if (definition.type !== 'list') {
         return undefined;
@@ -142,8 +156,13 @@ function convertArray(
 
     const elements: JsonValue[] = [];
 
-    for (const item of content) {
-        const itemContent = convertContent(item, schemas, definition.items);
+    for (const [index, item] of content.entries()) {
+        const itemContent = convertContent(
+            item,
+            schemas,
+            definition.items,
+            Array.isArray(original) ? original[index] : undefined,
+        );
 
         if (itemContent === undefined) {
             return undefined;
@@ -159,16 +178,17 @@ function convertObject(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
+    original?: JsonValue,
 ): JsonValue | undefined {
     switch (definition.type) {
         case 'structure':
-            return convertStructure(content, schemas, definition);
+            return convertStructure(content, schemas, definition, original);
 
         case 'union':
-            return convertUnion(content, schemas, definition);
+            return convertUnion(content, schemas, definition, original);
 
         case 'reference':
-            return convertReference(content, schemas, definition);
+            return convertReference(content, schemas, definition, original);
 
         default:
             return undefined;
@@ -179,6 +199,7 @@ function convertStructure(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'structure'>,
+    original?: JsonValue,
 ): JsonObject | undefined {
     const componentName = typeof content._component === 'string' && content._component.trim() !== ''
         ? getComponentName(content._component)
@@ -204,7 +225,12 @@ function convertStructure(
             return undefined;
         }
 
-        const attributeContent = convertContent(value, schemas, definition.attributes[key].type);
+        const attributeContent = convertContent(
+            value,
+            schemas,
+            definition.attributes[key].type,
+            isObject(original) ? original[key] as JsonValue : undefined,
+        );
 
         if (attributeContent === undefined) {
             return undefined;
@@ -224,6 +250,7 @@ function convertUnion(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'union'>,
+    original?: JsonValue,
 ): JsonValue | undefined {
     const memberDefinition = definition.types[content._type as string];
 
@@ -231,13 +258,14 @@ function convertUnion(
         return undefined;
     }
 
-    return convertContent({...content, _component: content._type}, schemas, memberDefinition);
+    return convertContent({...content, _component: content._type}, schemas, memberDefinition, original);
 }
 
 function convertReference(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'reference'>,
+    original?: JsonValue,
 ): JsonValue | undefined {
     const referenceDefinition = schemas.definitions[definition.id];
 
@@ -245,7 +273,7 @@ function convertReference(
         return undefined;
     }
 
-    return convertContent({...content, _component: definition.id}, schemas, referenceDefinition);
+    return convertContent({...content, _component: definition.id}, schemas, referenceDefinition, original);
 }
 
 function getComponentName(id: string): string | null {
@@ -260,6 +288,12 @@ function getComponentName(id: string): string | null {
 
 function generateUid(): string {
     return crypto.randomUUID();
+}
+
+function isMultilink(value: JsonValue | undefined): boolean {
+    // The fieldtype property is present in every version of the link object,
+    // see https://www.storyblok.com/faq/link-object-history
+    return isObject(value) && value.fieldtype === 'multilink';
 }
 
 function isObject<T>(value: T): value is T & Record<string, unknown> {
