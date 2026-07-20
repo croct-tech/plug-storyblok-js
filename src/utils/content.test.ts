@@ -581,6 +581,184 @@ describe('createStoryblokContent', () => {
         expect(result).toBeUndefined();
     });
 
+    it('should convert a plain text attribute to a link when the original content is a link object', () => {
+        const content = {
+            _component: 'banner',
+            title: 'Hello',
+            url: '/pricing',
+        };
+
+        const schemas: ContentDefinitionBundle = {
+            root: {
+                type: 'structure',
+                attributes: {
+                    title: {
+                        type: {
+                            type: 'text',
+                        },
+                    },
+                    url: {
+                        type: {
+                            type: 'text',
+                        },
+                    },
+                },
+            },
+            definitions: {},
+        };
+
+        const original = {
+            _uid: 'original-uid',
+            component: 'banner',
+            title: 'Original',
+            url: {
+                id: 'abc',
+                linktype: 'story',
+                fieldtype: 'multilink',
+                url: '',
+                cached_url: 'home',
+            },
+        };
+
+        const result = createStoryblokContent(content, schemas, original);
+
+        expect(result).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'banner',
+            title: 'Hello',
+            url: {
+                id: '',
+                linktype: 'url',
+                fieldtype: 'multilink',
+                url: '/pricing',
+                cached_url: '/pricing',
+            },
+        });
+    });
+
+    it('should keep a plain text attribute as string when the original content is not a link object', () => {
+        const content = {
+            _component: 'banner',
+            title: 'https://example.com',
+        };
+
+        const schemas: ContentDefinitionBundle = {
+            root: {
+                type: 'structure',
+                attributes: {
+                    title: {
+                        type: {
+                            type: 'text',
+                        },
+                    },
+                },
+            },
+            definitions: {},
+        };
+
+        const original = {
+            _uid: 'original-uid',
+            component: 'banner',
+            title: 'Original text',
+        };
+
+        const result = createStoryblokContent(content, schemas, original);
+
+        expect(result).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'banner',
+            title: 'https://example.com',
+        });
+    });
+
+    it('should convert nested plain text attributes to links based on the matching original content', () => {
+        const content = {
+            _component: 'section',
+            cards: [
+                {
+                    _component: 'card',
+                    link: '/first',
+                },
+                {
+                    _component: 'card',
+                    link: '/second',
+                },
+            ],
+        };
+
+        const schemas: ContentDefinitionBundle = {
+            root: {
+                type: 'structure',
+                attributes: {
+                    cards: {
+                        type: {
+                            type: 'list',
+                            items: {
+                                type: 'reference',
+                                id: 'card',
+                            },
+                        },
+                    },
+                },
+            },
+            definitions: {
+                card: {
+                    type: 'structure',
+                    attributes: {
+                        link: {
+                            type: {
+                                type: 'text',
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const original = {
+            _uid: 'original-uid',
+            component: 'section',
+            cards: [
+                {
+                    _uid: 'card-1',
+                    component: 'card',
+                    link: {
+                        id: '',
+                        linktype: 'url',
+                        fieldtype: 'multilink',
+                        url: '/original-first',
+                        cached_url: '/original-first',
+                    },
+                },
+            ],
+        };
+
+        const result = createStoryblokContent(content, schemas, original);
+
+        expect(result).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'section',
+            cards: [
+                {
+                    _uid: RANDOM_UUID,
+                    component: 'card',
+                    link: {
+                        id: '',
+                        linktype: 'url',
+                        fieldtype: 'multilink',
+                        url: '/first',
+                        cached_url: '/first',
+                    },
+                },
+                {
+                    _uid: RANDOM_UUID,
+                    component: 'card',
+                    link: '/second',
+                },
+            ],
+        });
+    });
+
     it('should return undefined when union member type is not in definition', () => {
         const content = {
             _component: 'section',
@@ -1337,6 +1515,63 @@ describe('resolveContent', () => {
                 fieldtype: 'multilink',
                 url: 'https://example.com/welcome',
                 cached_url: 'https://example.com/welcome',
+            },
+        });
+
+        expect(fetcher).toHaveBeenCalledWith('slot-id');
+    });
+
+    it('should convert plain text attributes to links based on the fallback content', async () => {
+        const fetcher: ContentFetcher = jest.fn().mockResolvedValue({
+            content: {
+                _component: 'banner',
+                message: 'Welcome!',
+                url: '/welcome',
+            },
+            metadata: {
+                schema: {
+                    root: {
+                        type: 'structure',
+                        attributes: {
+                            message: {
+                                type: {
+                                    type: 'text',
+                                },
+                            },
+                            url: {
+                                type: {
+                                    type: 'text',
+                                },
+                            },
+                        },
+                    },
+                    definitions: {},
+                },
+            },
+        });
+
+        const content = {
+            croct: 'slot-id',
+            message: 'Original',
+            url: {
+                id: '',
+                linktype: 'url',
+                fieldtype: 'multilink',
+                url: '/original',
+                cached_url: '/original',
+            },
+        };
+
+        await expect(resolveContent(content, fetcher)).resolves.toEqual({
+            _uid: RANDOM_UUID,
+            component: 'banner',
+            message: 'Welcome!',
+            url: {
+                id: '',
+                linktype: 'url',
+                fieldtype: 'multilink',
+                url: '/welcome',
+                cached_url: '/welcome',
             },
         });
 
