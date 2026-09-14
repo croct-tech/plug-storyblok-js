@@ -14,7 +14,7 @@ type Story = JsonObject & {uuid: string};
 export async function resolveContent(
     content: unknown,
     fetcher: ContentFetcher,
-    stories: Map<string, JsonObject> = collectStories(content),
+    stories: ReadonlyMap<string, JsonObject> = collectStories(content),
 ): Promise<unknown> {
     if (isObject(content)) {
         if (typeof content.croct === 'string' && content.croct.trim() !== '') {
@@ -62,7 +62,7 @@ export function createStoryblokContent(
     content: JsonObject,
     schemas: ContentDefinitionBundle | undefined,
     original?: JsonValue,
-    stories: Map<string, JsonObject> = collectStories(original),
+    stories: ReadonlyMap<string, JsonObject> = collectStories(original),
 ): JsonObject | undefined {
     if (schemas === undefined) {
         return undefined;
@@ -71,7 +71,7 @@ export function createStoryblokContent(
     return convertContent(content, schemas, schemas.root, stories, original) as JsonObject | undefined;
 }
 
-function collectStories(value: unknown, stories = new Map<string, JsonObject>()): Map<string, JsonObject> {
+function collectStories(value: unknown, stories = new Map<string, JsonObject>()): ReadonlyMap<string, JsonObject> {
     if (Array.isArray(value)) {
         for (const item of value) {
             collectStories(item, stories);
@@ -93,7 +93,7 @@ function convertContent(
     content: JsonValue,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
-    stories: Map<string, JsonObject>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     if (typeof content === 'number') {
@@ -138,7 +138,7 @@ function convertBoolean(content: boolean, definition: ContentDefinition): boolea
 function convertString(
     content: string,
     definition: ContentDefinition,
-    stories: Map<string, JsonObject>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     if (definition.type === 'reference' && definition.id === '@croct/file') {
@@ -188,7 +188,7 @@ function convertArray(
     content: JsonValue[],
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
-    stories: Map<string, JsonObject>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue[] | undefined {
     if (definition.type !== 'list') {
@@ -223,7 +223,7 @@ function convertObject(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
-    stories: Map<string, JsonObject>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     switch (definition.type) {
@@ -245,7 +245,7 @@ function convertStructure(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'structure'>,
-    stories: Map<string, JsonObject>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonObject | undefined {
     const componentName = typeof content._component === 'string' && content._component.trim() !== ''
@@ -298,7 +298,7 @@ function convertUnion(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'union'>,
-    stories: Map<string, JsonObject>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     const memberDefinition = definition.types[content._type as string];
@@ -314,7 +314,7 @@ function convertReference(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'reference'>,
-    stories: Map<string, JsonObject>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     const referenceDefinition = schemas.definitions[definition.id];
