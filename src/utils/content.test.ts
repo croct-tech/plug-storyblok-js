@@ -1356,7 +1356,6 @@ describe('createStoryblokContent', () => {
         expect(createStoryblokContent(content, RELATION_SCHEMAS, original)).toEqual({
             _uid: RANDOM_UUID,
             component: 'testimonials-section',
-            // The third story isn't available, so it keeps its UUID, as Storyblok does.
             testimonials: [THIRD_STORY.uuid, SECOND_STORY, FIRST_STORY],
         });
     });

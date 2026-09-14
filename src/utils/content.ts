@@ -7,10 +7,6 @@ export type ContentFetcher = (id: string) => Promise<FetchResponse<DynamicSlotId
 
 type Story = JsonObject & {uuid: string};
 
-/**
- * Story relations in Croct content are resolved from the stories already in the
- * content, which are the ones Storyblok resolves relations from, without loading any.
- */
 export async function resolveContent(
     content: unknown,
     fetcher: ContentFetcher,
@@ -170,10 +166,8 @@ function convertString(
             };
         }
 
-        // Storyblok stores story relations as UUIDs, which resolve_relations replaces
-        // with the related stories, but Croct only has the UUIDs. A story in the
-        // original content signals a resolved relation, so the UUID is resolved too,
-        // or kept as is when the story isn't available, as Storyblok does.
+        // Story relations are synced as UUIDs, which Storyblok resolves into the
+        // related stories. A story in the original content indicates a resolved relation.
         if (isStory(original)) {
             return stories.get(content) ?? content;
         }
@@ -195,8 +189,6 @@ function convertArray(
         return undefined;
     }
 
-    // Every item of a story relation is a story, so any story in the original
-    // list identifies the field as a relation, however Croct orders or sizes it.
     const relatedStory = Array.isArray(original) ? original.find(isStory) : undefined;
     const elements: JsonValue[] = [];
 
@@ -347,8 +339,6 @@ function isMultilink(value: JsonValue | undefined): boolean {
 }
 
 function isStory(value: unknown): value is Story {
-    // Stories resolved from relations have a UUID, a slug and content, unlike
-    // blocks, which have a _uid and a component name instead.
     return isObject(value)
         && typeof value.uuid === 'string'
         && typeof value.full_slug === 'string'
