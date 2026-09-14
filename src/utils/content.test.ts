@@ -5,6 +5,49 @@ import {createStoryblokContent, resolveContent} from '@/utils/content';
 
 const RANDOM_UUID = '00000000-0000-0000-0000-000000000000';
 
+const FIRST_STORY = {
+    uuid: '11111111-1111-4111-8111-111111111111',
+    name: 'First',
+    full_slug: 'testimonials/first',
+    content: {_uid: 'first-uid', component: 'testimonial', quote: 'First quote'},
+};
+
+const SECOND_STORY = {
+    uuid: '22222222-2222-4222-8222-222222222222',
+    name: 'Second',
+    full_slug: 'testimonials/second',
+    content: {_uid: 'second-uid', component: 'testimonial', quote: 'Second quote'},
+};
+
+const THIRD_STORY = {
+    uuid: '33333333-3333-4333-8333-333333333333',
+    name: 'Third',
+    full_slug: 'testimonials/third',
+    content: {_uid: 'third-uid', component: 'testimonial', quote: 'Third quote'},
+};
+
+const RELATION_SCHEMAS: ContentDefinitionBundle = {
+    root: {
+        type: 'structure',
+        attributes: {
+            featured: {
+                type: {
+                    type: 'text',
+                },
+            },
+            testimonials: {
+                type: {
+                    type: 'list',
+                    items: {
+                        type: 'text',
+                    },
+                },
+            },
+        },
+    },
+    definitions: {},
+};
+
 describe('createStoryblokContent', () => {
     type SupportedScenario = {
         description: string,
@@ -1277,6 +1320,87 @@ describe('createStoryblokContent', () => {
 
         expect(result).toBeUndefined();
     });
+
+    it('should resolve a story relation to the story in the original content', () => {
+        const content = {
+            _component: 'testimonials-section',
+            featured: SECOND_STORY.uuid,
+        };
+
+        const original = {
+            _uid: 'original-uid',
+            component: 'testimonials-section',
+            featured: FIRST_STORY,
+            testimonials: [SECOND_STORY],
+        };
+
+        expect(createStoryblokContent(content, RELATION_SCHEMAS, original)).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'testimonials-section',
+            featured: SECOND_STORY,
+        });
+    });
+
+    it('should resolve the items of a story relation regardless of their order and count', () => {
+        const content = {
+            _component: 'testimonials-section',
+            testimonials: [THIRD_STORY.uuid, SECOND_STORY.uuid, FIRST_STORY.uuid],
+        };
+
+        const original = {
+            _uid: 'original-uid',
+            component: 'testimonials-section',
+            testimonials: [FIRST_STORY, SECOND_STORY],
+        };
+
+        expect(createStoryblokContent(content, RELATION_SCHEMAS, original)).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'testimonials-section',
+            testimonials: [THIRD_STORY.uuid, SECOND_STORY, FIRST_STORY],
+        });
+    });
+
+    it('should keep the UUIDs of a story relation that is not resolved in the original content', () => {
+        const content = {
+            _component: 'testimonials-section',
+            featured: FIRST_STORY.uuid,
+            testimonials: [SECOND_STORY.uuid],
+        };
+
+        const original = {
+            _uid: 'original-uid',
+            component: 'testimonials-section',
+            featured: FIRST_STORY.uuid,
+            testimonials: [SECOND_STORY.uuid],
+            other: [FIRST_STORY, SECOND_STORY],
+        };
+
+        expect(createStoryblokContent(content, RELATION_SCHEMAS, original)).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'testimonials-section',
+            featured: FIRST_STORY.uuid,
+            testimonials: [SECOND_STORY.uuid],
+        });
+    });
+
+    it('should keep a text that is not a UUID even if the original content is a story', () => {
+        const content = {
+            _component: 'testimonials-section',
+            featured: 'Not a UUID',
+        };
+
+        const original = {
+            _uid: 'original-uid',
+            component: 'testimonials-section',
+            featured: FIRST_STORY,
+        };
+
+        expect(createStoryblokContent(content, RELATION_SCHEMAS, original)).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'testimonials-section',
+            featured: 'Not a UUID',
+        });
+    });
 });
 
 describe('resolveContent', () => {
@@ -1664,5 +1788,69 @@ describe('resolveContent', () => {
         await expect(resolveContent(content, fetcher)).resolves.toEqual(expectedFallback);
 
         expect(fetcher).toHaveBeenCalledWith('slot-id');
+    });
+
+    describe('story relations', () => {
+        function createFetcher(): ContentFetcher {
+            return jest.fn().mockResolvedValue({
+                content: {
+                    _component: 'testimonials-section',
+                    testimonials: [FIRST_STORY.uuid, SECOND_STORY.uuid, THIRD_STORY.uuid],
+                },
+                metadata: {
+                    schema: RELATION_SCHEMAS,
+                },
+            });
+        }
+
+        it('should resolve story relations with the stories anywhere in the content', async () => {
+            const content = {
+                data: {
+                    story: {
+                        content: {
+                            body: [
+                                {
+                                    croct: 'testimonials',
+                                    component: 'testimonials-section',
+                                    testimonials: [FIRST_STORY],
+                                },
+                            ],
+                        },
+                    },
+                    rels: [FIRST_STORY, SECOND_STORY, THIRD_STORY],
+                },
+            };
+
+            await expect(resolveContent(content, createFetcher())).resolves.toEqual({
+                data: {
+                    story: {
+                        content: {
+                            body: [
+                                {
+                                    _uid: RANDOM_UUID,
+                                    component: 'testimonials-section',
+                                    testimonials: [FIRST_STORY, SECOND_STORY, THIRD_STORY],
+                                },
+                            ],
+                        },
+                    },
+                    rels: [FIRST_STORY, SECOND_STORY, THIRD_STORY],
+                },
+            });
+        });
+
+        it('should keep the UUIDs of related stories that are not in the content', async () => {
+            const content = {
+                croct: 'testimonials',
+                component: 'testimonials-section',
+                testimonials: [FIRST_STORY],
+            };
+
+            await expect(resolveContent(content, createFetcher())).resolves.toEqual({
+                _uid: RANDOM_UUID,
+                component: 'testimonials-section',
+                testimonials: [FIRST_STORY, SECOND_STORY.uuid, THIRD_STORY.uuid],
+            });
+        });
     });
 });

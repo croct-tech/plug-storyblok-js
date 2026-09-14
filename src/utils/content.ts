@@ -5,7 +5,13 @@ import type {DynamicSlotId} from '@croct/plug/slot';
 
 export type ContentFetcher = (id: string) => Promise<FetchResponse<DynamicSlotId> | undefined>;
 
-export async function resolveContent(content: unknown, fetcher: ContentFetcher): Promise<unknown> {
+type Story = JsonObject & {uuid: string};
+
+export async function resolveContent(
+    content: unknown,
+    fetcher: ContentFetcher,
+    stories: ReadonlyMap<string, JsonObject> = collectStories(content),
+): Promise<unknown> {
     if (isObject(content)) {
         if (typeof content.croct === 'string' && content.croct.trim() !== '') {
             const {croct: slotId, ...rest} = content;
@@ -20,6 +26,7 @@ export async function resolveContent(content: unknown, fetcher: ContentFetcher):
                         response.content,
                         response.metadata?.schema,
                         rest as JsonObject,
+                        stories,
                     ) ?? rest;
                 },
             ).catch(() => rest);
@@ -30,7 +37,7 @@ export async function resolveContent(content: unknown, fetcher: ContentFetcher):
                 Object.entries(content).map(
                     async ([key, value]) => [
                         key,
-                        value === undefined ? value : await resolveContent(value, fetcher),
+                        value === undefined ? value : await resolveContent(value, fetcher, stories),
                     ],
                 ),
             ),
@@ -38,7 +45,7 @@ export async function resolveContent(content: unknown, fetcher: ContentFetcher):
     }
 
     if (Array.isArray(content)) {
-        return Promise.all(content.map(item => resolveContent(item, fetcher)));
+        return Promise.all(content.map(item => resolveContent(item, fetcher, stories)));
     }
 
     return content;
@@ -51,18 +58,38 @@ export function createStoryblokContent(
     content: JsonObject,
     schemas: ContentDefinitionBundle | undefined,
     original?: JsonValue,
+    stories: ReadonlyMap<string, JsonObject> = collectStories(original),
 ): JsonObject | undefined {
     if (schemas === undefined) {
         return undefined;
     }
 
-    return convertContent(content, schemas, schemas.root, original) as JsonObject | undefined;
+    return convertContent(content, schemas, schemas.root, stories, original) as JsonObject | undefined;
+}
+
+function collectStories(value: unknown, stories = new Map<string, JsonObject>()): ReadonlyMap<string, JsonObject> {
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            collectStories(item, stories);
+        }
+    } else if (isObject(value)) {
+        if (isStory(value)) {
+            stories.set(value.uuid, value);
+        }
+
+        for (const item of Object.values(value)) {
+            collectStories(item, stories);
+        }
+    }
+
+    return stories;
 }
 
 function convertContent(
     content: JsonValue,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     if (typeof content === 'number') {
@@ -74,15 +101,15 @@ function convertContent(
     }
 
     if (typeof content === 'string') {
-        return convertString(content, definition, original);
+        return convertString(content, definition, stories, original);
     }
 
     if (Array.isArray(content)) {
-        return convertArray(content, schemas, definition, original);
+        return convertArray(content, schemas, definition, stories, original);
     }
 
     if (isObject(content)) {
-        return convertObject(content, schemas, definition, original);
+        return convertObject(content, schemas, definition, stories, original);
     }
 
     return undefined;
@@ -107,6 +134,7 @@ function convertBoolean(content: boolean, definition: ContentDefinition): boolea
 function convertString(
     content: string,
     definition: ContentDefinition,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     if (definition.type === 'reference' && definition.id === '@croct/file') {
@@ -138,6 +166,12 @@ function convertString(
             };
         }
 
+        // Story relations are synced as UUIDs, which Storyblok resolves into the
+        // related stories. A story in the original content indicates a resolved relation.
+        if (isStory(original)) {
+            return stories.get(content) ?? content;
+        }
+
         return content;
     }
 
@@ -148,12 +182,14 @@ function convertArray(
     content: JsonValue[],
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue[] | undefined {
     if (definition.type !== 'list') {
         return undefined;
     }
 
+    const relatedStory = Array.isArray(original) ? original.find(isStory) : undefined;
     const elements: JsonValue[] = [];
 
     for (const [index, item] of content.entries()) {
@@ -161,7 +197,8 @@ function convertArray(
             item,
             schemas,
             definition.items,
-            Array.isArray(original) ? original[index] : undefined,
+            stories,
+            relatedStory ?? (Array.isArray(original) ? original[index] : undefined),
         );
 
         if (itemContent === undefined) {
@@ -178,17 +215,18 @@ function convertObject(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     switch (definition.type) {
         case 'structure':
-            return convertStructure(content, schemas, definition, original);
+            return convertStructure(content, schemas, definition, stories, original);
 
         case 'union':
-            return convertUnion(content, schemas, definition, original);
+            return convertUnion(content, schemas, definition, stories, original);
 
         case 'reference':
-            return convertReference(content, schemas, definition, original);
+            return convertReference(content, schemas, definition, stories, original);
 
         default:
             return undefined;
@@ -199,6 +237,7 @@ function convertStructure(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'structure'>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonObject | undefined {
     const componentName = typeof content._component === 'string' && content._component.trim() !== ''
@@ -229,6 +268,7 @@ function convertStructure(
             value,
             schemas,
             definition.attributes[key].type,
+            stories,
             isObject(original) ? original[key] as JsonValue : undefined,
         );
 
@@ -250,6 +290,7 @@ function convertUnion(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'union'>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     const memberDefinition = definition.types[content._type as string];
@@ -258,13 +299,14 @@ function convertUnion(
         return undefined;
     }
 
-    return convertContent({...content, _component: content._type}, schemas, memberDefinition, original);
+    return convertContent({...content, _component: content._type}, schemas, memberDefinition, stories, original);
 }
 
 function convertReference(
     content: JsonObject,
     schemas: ContentDefinitionBundle,
     definition: ContentDefinition<'reference'>,
+    stories: ReadonlyMap<string, JsonObject>,
     original?: JsonValue,
 ): JsonValue | undefined {
     const referenceDefinition = schemas.definitions[definition.id];
@@ -273,7 +315,7 @@ function convertReference(
         return undefined;
     }
 
-    return convertContent({...content, _component: definition.id}, schemas, referenceDefinition, original);
+    return convertContent({...content, _component: definition.id}, schemas, referenceDefinition, stories, original);
 }
 
 function getComponentName(id: string): string | null {
@@ -294,6 +336,13 @@ function isMultilink(value: JsonValue | undefined): boolean {
     // The fieldtype property is present in every version of the link object,
     // see https://www.storyblok.com/faq/link-object-history
     return isObject(value) && value.fieldtype === 'multilink';
+}
+
+function isStory(value: unknown): value is Story {
+    return isObject(value)
+        && typeof value.uuid === 'string'
+        && typeof value.full_slug === 'string'
+        && isObject(value.content);
 }
 
 function isObject<T>(value: T): value is T & Record<string, unknown> {
