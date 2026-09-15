@@ -157,6 +157,12 @@ function convertString(
         // which the URL format does not. The original Storyblok content is the only
         // remaining signal that the field is a link rather than a text.
         if (definition.format === 'url' || isMultilink(original)) {
+            // Links are synced as their cached URL, which for story links is a relative slug.
+            // An unchanged value keeps the original link so it still points to the story.
+            if (isMultilink(original) && original.cached_url === content) {
+                return original;
+            }
+
             return {
                 id: '',
                 linktype: 'url',
@@ -332,7 +338,7 @@ function generateUid(): string {
     return crypto.randomUUID();
 }
 
-function isMultilink(value: JsonValue | undefined): boolean {
+function isMultilink(value: JsonValue | undefined): value is JsonObject {
     // The fieldtype property is present in every version of the link object,
     // see https://www.storyblok.com/faq/link-object-history
     return isObject(value) && value.fieldtype === 'multilink';

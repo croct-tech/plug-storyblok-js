@@ -679,6 +679,65 @@ describe('createStoryblokContent', () => {
         });
     });
 
+    it.each([
+        {
+            description: 'a story link',
+            link: {
+                id: 'story-uuid',
+                url: '',
+                linktype: 'story',
+                fieldtype: 'multilink',
+                cached_url: 'about',
+                story: {
+                    name: 'About',
+                    full_slug: 'about',
+                },
+            },
+        },
+        {
+            description: 'a URL link',
+            link: {
+                id: '',
+                url: 'https://example.com',
+                target: '_blank',
+                linktype: 'url',
+                fieldtype: 'multilink',
+                cached_url: 'https://example.com',
+            },
+        },
+    ])('should keep the original $description when the value matches its cached URL', ({link}) => {
+        const content = {
+            _component: 'banner',
+            url: link.cached_url,
+        };
+
+        const schemas: ContentDefinitionBundle = {
+            root: {
+                type: 'structure',
+                attributes: {
+                    url: {
+                        type: {
+                            type: 'text',
+                        },
+                    },
+                },
+            },
+            definitions: {},
+        };
+
+        const original = {
+            _uid: 'original-uid',
+            component: 'banner',
+            url: link,
+        };
+
+        expect(createStoryblokContent(content, schemas, original)).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'banner',
+            url: link,
+        });
+    });
+
     it('should keep a plain text attribute as string when the original content is not a link object', () => {
         const content = {
             _component: 'banner',
