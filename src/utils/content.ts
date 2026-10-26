@@ -2,6 +2,7 @@ import type {JsonObject, JsonValue} from '@croct/json';
 import type {ContentDefinition, ContentDefinitionBundle} from '@croct/content-model/definition';
 import type {FetchResponse} from '@croct/plug';
 import type {DynamicSlotId} from '@croct/plug/slot';
+import {parseRichText} from '@/utils/richText';
 
 export type ContentFetcher = (id: string) => Promise<FetchResponse<DynamicSlotId> | undefined>;
 
@@ -150,6 +151,11 @@ function convertString(
             meta_data: {},
             is_external_url: true,
         };
+    }
+
+    // Rich text is stored as Markdown in Croct, while Storyblok expects a rich text document.
+    if (isRichTextReference(definition)) {
+        return parseRichText(content);
     }
 
     if (definition.type === 'text') {
@@ -336,6 +342,11 @@ function getComponentName(id: string): string | null {
 
 function generateUid(): string {
     return crypto.randomUUID();
+}
+
+function isRichTextReference(definition: ContentDefinition): boolean {
+    // Like files, rich text is a built-in reference that the schema keeps as written
+    return definition.type === 'reference' && definition.id === '@croct/richText';
 }
 
 function isMultilink(value: JsonValue | undefined): value is JsonObject {
