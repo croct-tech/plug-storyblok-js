@@ -2,6 +2,7 @@ import type {ContentDefinitionBundle} from '@croct/content-model/definition';
 import type {JsonObject} from '@croct/json';
 import type {ContentFetcher} from '@/utils/content';
 import {createStoryblokContent, resolveContent} from '@/utils/content';
+import {parseRichText} from '@/utils/richText';
 
 const RANDOM_UUID = '00000000-0000-0000-0000-000000000000';
 
@@ -25,6 +26,32 @@ const THIRD_STORY = {
     full_slug: 'testimonials/third',
     content: {_uid: 'third-uid', component: 'testimonial', quote: 'Third quote'},
 };
+
+const RICH_TEXT_SCHEMAS: ContentDefinitionBundle = {
+    root: {
+        type: 'structure',
+        attributes: {
+            title: {
+                type: {
+                    type: 'text',
+                },
+            },
+            body: {
+                type: {
+                    type: 'reference',
+                    id: '@croct/richText',
+                    properties: {
+                        format: 'multiline',
+                        allowedFormatting: ['bold', 'italic', 'heading'],
+                    },
+                },
+            },
+        },
+    },
+    definitions: {},
+};
+
+const RICH_TEXT_MARKDOWN = '# Title\n\nSome **bold** text and a [link](https://example.com).';
 
 const RELATION_SCHEMAS: ContentDefinitionBundle = {
     root: {
@@ -1460,6 +1487,21 @@ describe('createStoryblokContent', () => {
             featured: 'Not a UUID',
         });
     });
+
+    it('should convert a rich text attribute from Markdown to Storyblok rich text', () => {
+        const content = {
+            _component: 'article',
+            title: 'Lorem ipsum',
+            body: RICH_TEXT_MARKDOWN,
+        };
+
+        expect(createStoryblokContent(content, RICH_TEXT_SCHEMAS)).toEqual({
+            _uid: RANDOM_UUID,
+            component: 'article',
+            title: 'Lorem ipsum',
+            body: parseRichText(RICH_TEXT_MARKDOWN),
+        });
+    });
 });
 
 describe('resolveContent', () => {
@@ -1528,6 +1570,15 @@ describe('resolveContent', () => {
 
         await expect(resolveContent(content, fetcher)).resolves.toEqual(content);
 
+        expect(fetcher).not.toHaveBeenCalled();
+    });
+
+    it('should keep undefined properties as they are', async () => {
+        const fetcher: ContentFetcher = jest.fn();
+
+        const result = await resolveContent({title: 'Lorem ipsum', subtitle: undefined}, fetcher);
+
+        expect(result).toStrictEqual({title: 'Lorem ipsum', subtitle: undefined});
         expect(fetcher).not.toHaveBeenCalled();
     });
 
@@ -1847,6 +1898,33 @@ describe('resolveContent', () => {
         await expect(resolveContent(content, fetcher)).resolves.toEqual(expectedFallback);
 
         expect(fetcher).toHaveBeenCalledWith('slot-id');
+    });
+
+    it('should convert rich text attributes from Markdown to Storyblok rich text', async () => {
+        const fetcher: ContentFetcher = jest.fn().mockResolvedValue({
+            content: {
+                _component: 'article',
+                title: 'Lorem ipsum',
+                body: RICH_TEXT_MARKDOWN,
+            },
+            metadata: {
+                schema: RICH_TEXT_SCHEMAS,
+            },
+        });
+
+        const content = {
+            croct: 'article',
+            component: 'article',
+            title: 'Fallback title',
+            body: {type: 'doc', content: []},
+        };
+
+        await expect(resolveContent(content, fetcher)).resolves.toEqual({
+            _uid: RANDOM_UUID,
+            component: 'article',
+            title: 'Lorem ipsum',
+            body: parseRichText(RICH_TEXT_MARKDOWN),
+        });
     });
 
     describe('story relations', () => {
