@@ -41,11 +41,11 @@
     "postbuild": "./post-build.mjs"
   },
   "dependencies": {
-    "@croct/content-model": "^0.21",
+    "@croct/content-model": "^0.26.0",
     "@croct/json": "^2.1.0",
     "@croct/plug": "^0.24.0",
     "@storyblok/js": "^4.4.4 || ^5.0.0 || ^6.0.0",
-    "marked": "^18.0.0",
+    "marked": "^18.1.2",
     "tslib": "^2.7.0"
   },
   "devDependencies": {
